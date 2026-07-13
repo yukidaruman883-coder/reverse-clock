@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>逆時計</title>
+<meta name="description" content="反時計回りに動くアナログ時計">
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2b1d14">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+
+<!-- iOS用設定 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="逆時計">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+
+<style>
+  :root {
+    --clock-size: min(88vmin, 480px);
+  }
+
+  /* ===== ウォルナットテーマ ===== */
+  body[data-theme="walnut"] {
+    --bg: #1c130d;
+    --face-a: #5c4033;
+    --face-b: #3e2a1e;
+    --grain: rgba(0, 0, 0, 0.10);
+    --rim-a: #2b1d14;
+    --rim-b: #4a3423;
+    --numeral: #e8d9be;
+    --hand-hm: #efe3c8;
+    --hand-sec: #c98a4b;
+    --pin: #e8d9be;
+    --toggle-bg: rgba(232, 217, 190, 0.12);
+    --toggle-fg: #e8d9be;
+    --toggle-active-bg: #e8d9be;
+    --toggle-active-fg: #3e2a1e;
+  }
+
+  /* ===== 白樺テーマ ===== */
+  body[data-theme="birch"] {
+    --bg: #ded2bd;
+    --face-a: #f4ecdd;
+    --face-b: #e3d5bc;
+    --grain: rgba(122, 98, 66, 0.08);
+    --rim-a: #cbb896;
+    --rim-b: #b39f7d;
+    --numeral: #4a3826;
+    --hand-hm: #3a2d1e;
+    --hand-sec: #8a5a2b;
+    --pin: #3a2d1e;
+    --toggle-bg: rgba(74, 56, 38, 0.10);
+    --toggle-fg: #4a3826;
+    --toggle-active-bg: #4a3826;
+    --toggle-active-fg: #f4ecdd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.5s ease;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ===== 時計盤 ===== */
+  .clock {
+    position: relative;
+    width: var(--clock-size);
+    height: var(--clock-size);
+    border-radius: 50%;
+    background:
+      repeating-linear-gradient(84deg,
+        transparent 0px, transparent 7px,
+        var(--grain) 7px, var(--grain) 9px),
+      radial-gradient(circle at 38% 32%, var(--face-a), var(--face-b) 78%);
+    box-shadow:
+      inset 0 0 0 calc(var(--clock-size) * 0.035) var(--rim-b),
+      inset 0 0 0 calc(var(--clock-size) * 0.045) var(--rim-a),
+      inset 0 calc(var(--clock-size) * 0.02) calc(var(--clock-size) * 0.06) rgba(0,0,0,0.35),
+      0 12px 40px rgba(0, 0, 0, 0.35);
+    transition: background 0.5s ease, box-shadow 0.5s ease;
+  }
+
+  /* 数字 */
+  .numeral {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: calc(var(--clock-size) * 0.085);
+    font-weight: 600;
+    color: var(--numeral);
+    letter-spacing: -0.02em;
+    transition: color 0.5s ease;
+  }
+
+  /* 分目盛 */
+  .tick {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2px;
+    height: calc(var(--clock-size) * 0.02);
+    background: var(--numeral);
+    opacity: 0.45;
+    transform-origin: 50% 0;
+    transition: background 0.5s ease;
+  }
+  .tick.major {
+    width: 3px;
+    height: calc(var(--clock-size) * 0.035);
+    opacity: 0.8;
+  }
+
+  /* ===== 針 ===== */
+  .hand {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    transform-origin: 50% 100%;
+    border-radius: 999px;
+    transition: background 0.5s ease;
+  }
+  .hand.hour {
+    width: calc(var(--clock-size) * 0.022);
+    height: calc(var(--clock-size) * 0.24);
+    margin-left: calc(var(--clock-size) * -0.011);
+    background: var(--hand-hm);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .hand.minute {
+    width: calc(var(--clock-size) * 0.015);
+    height: calc(var(--clock-size) * 0.35);
+    margin-left: calc(var(--clock-size) * -0.0075);
+    background: var(--hand-hm);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .hand.second {
+    width: calc(var(--clock-size) * 0.006);
+    height: calc(var(--clock-size) * 0.40);
+    margin-left: calc(var(--clock-size) * -0.003);
+    background: var(--hand-sec);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    /* カチッという機械的な動き */
+    transition: transform 0.18s cubic-bezier(0.4, 2.0, 0.55, 0.9),
+                background 0.5s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hand.second { transition: background 0.5s ease; }
+  }
+
+  /* 中心ピン */
+  .pin {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--clock-size) * 0.045);
+    height: calc(var(--clock-size) * 0.045);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--pin);
+    box-shadow: 0 0 0 calc(var(--clock-size) * 0.008) var(--rim-a);
+    transition: background 0.5s ease;
+  }
+
+  /* ===== テーマ切替 ===== */
+  .theme-toggle {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--toggle-bg);
+    transition: background 0.5s ease;
+  }
+  .theme-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--toggle-fg);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  .theme-toggle button[aria-pressed="true"] {
+    background: var(--toggle-active-bg);
+    color: var(--toggle-active-fg);
+  }
+  .theme-toggle button:focus-visible {
+    outline: 2px solid var(--toggle-fg);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body data-theme="walnut">
+
+  <div class="clock" id="clock" role="img" aria-label="反時計回りのアナログ時計">
+    <div class="hand hour" id="hourHand"></div>
+    <div class="hand minute" id="minuteHand"></div>
+    <div class="hand second" id="secondHand"></div>
+    <div class="pin"></div>
+  </div>
+
+  <div class="theme-toggle" role="group" aria-label="テーマ切替">
+    <button id="btnWalnut" aria-pressed="true">ウォルナット</button>
+    <button id="btnBirch" aria-pressed="false">白樺</button>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var clock = document.getElementById("clock");
+  var hourHand = document.getElementById("hourHand");
+  var minuteHand = document.getElementById("minuteHand");
+  var secondHand = document.getElementById("secondHand");
+
+  /* ---- 文字盤の生成(数字は反時計回りに配置、鏡文字にはしない) ---- */
+  function buildFace() {
+    var size = clock.clientWidth;
+    var numeralRadius = size * 0.40;
+
+    // 数字 1〜12
+    for (var n = 1; n <= 12; n++) {
+      var el = document.createElement("div");
+      el.className = "numeral";
+      el.textContent = n;
+      var rad = (n * 30) * Math.PI / 180;
+      // 通常は +sin だが、反時計回り配置のため -sin(左右反転した位置)
+      var x = 50 - Math.sin(rad) * (numeralRadius / size) * 100;
+      var y = 50 - Math.cos(rad) * (numeralRadius / size) * 100;
+      el.style.left = x + "%";
+      el.style.top = y + "%";
+      clock.appendChild(el);
+    }
+
+    // 分目盛(60本、5分毎は太く)
+    for (var t = 0; t < 60; t++) {
+      var tick = document.createElement("div");
+      tick.className = "tick" + (t % 5 === 0 ? " major" : "");
+      var deg = t * 6;
+      tick.style.transform =
+        "rotate(" + deg + "deg) translateY(calc(var(--clock-size) * -0.465))";
+      clock.appendChild(tick);
+    }
+  }
+
+  /* ---- 針の駆動 ---- */
+  // 秒針は累積角度で管理し、0秒をまたいでも逆戻りしないようにする
+  var secAngle;
+
+  function initHands() {
+    var now = new Date();
+    var s = now.getSeconds();
+    var m = now.getMinutes();
+    var h = now.getHours() % 12;
+
+    secAngle = -6 * s;
+    secondHand.style.transform = "rotate(" + secAngle + "deg)";
+    setSlowHands(h, m, s);
+  }
+
+  function setSlowHands(h, m, s) {
+    // 反時計回りなので角度は負
+    var minuteAngle = -(m * 6 + s * 0.1);
+    var hourAngle = -(h * 30 + m * 0.5);
+    minuteHand.style.transform = "rotate(" + minuteAngle + "deg)";
+    hourHand.style.transform = "rotate(" + hourAngle + "deg)";
+  }
+
+  function tick() {
+    var now = new Date();
+    var s = now.getSeconds();
+    var m = now.getMinutes();
+    var h = now.getHours() % 12;
+
+    // 1秒ぶん反時計回りに進める(カチカチ動作)
+    secAngle -= 6;
+    secondHand.style.transform = "rotate(" + secAngle + "deg)";
+    setSlowHands(h, m, s);
+
+    // 次の正秒ちょうどに合わせて再スケジュール(ずれ防止)
+    scheduleNext();
+  }
+
+  function scheduleNext() {
+    var delay = 1000 - (Date.now() % 1000);
+    setTimeout(tick, delay);
+  }
+
+  // バックグラウンド復帰時に時刻を再同期
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      secondHand.style.transition = "none";
+      initHands();
+      // 強制リフロー後にtransitionを戻す
+      void secondHand.offsetWidth;
+      secondHand.style.transition = "";
+    }
+  });
+
+  /* ---- テーマ切替 ---- */
+  var btnWalnut = document.getElementById("btnWalnut");
+  var btnBirch = document.getElementById("btnBirch");
+
+  function setTheme(theme) {
+    document.body.setAttribute("data-theme", theme);
+    btnWalnut.setAttribute("aria-pressed", String(theme === "walnut"));
+    btnBirch.setAttribute("aria-pressed", String(theme === "birch"));
+    try { localStorage.setItem("clockTheme", theme); } catch (e) {}
+  }
+
+  btnWalnut.addEventListener("click", function () { setTheme("walnut"); });
+  btnBirch.addEventListener("click", function () { setTheme("birch"); });
+
+  var saved = null;
+  try { saved = localStorage.getItem("clockTheme"); } catch (e) {}
+  if (saved === "birch" || saved === "walnut") setTheme(saved);
+
+  /* ---- 起動 ---- */
+  buildFace();
+  initHands();
+  scheduleNext();
+
+  /* ---- Service Worker登録(PWA・オフライン対応) ---- */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").catch(function () {
+        // 登録に失敗しても時計自体は動作する
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
